@@ -1,0 +1,6 @@
+-- A teacher can manage the course assigned to their teaching group.
+-- Explicitly false predicates also prevent null roles from authorizing writes.
+create or replace function private.manages(cid text) returns boolean language sql stable security definer set search_path='' as $$select coalesce(auth.uid() is not null and (private.role()='admin' or (private.role()='teacher' and (exists(select 1 from public.courses where id=cid and teacher_id=auth.uid()::text) or exists(select 1 from public.enrollments e join public.groups g on g.id=e.group_id where e.course_id=cid and g.teacher_id=auth.uid()::text)))),false)$$;
+create or replace function private.manages_student(sid text) returns boolean language sql stable security definer set search_path='' as $$select coalesce(auth.uid() is not null and (private.role()='admin' or (private.role()='teacher' and (exists(select 1 from public.groups where teacher_id=auth.uid()::text and data->'studentIds' ? sid) or exists(select 1 from public.enrollments where student_id=sid and private.manages(course_id))))),false)$$;
+revoke all on function private.manages(text),private.manages_student(text) from public,anon;
+grant execute on function private.manages(text),private.manages_student(text) to authenticated;

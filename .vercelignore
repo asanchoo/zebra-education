@@ -1,0 +1,9 @@
+.data
+.env*
+!.env.example
+test-results
+playwright-report
+supabase
+scripts
+tests
+.git

@@ -1,0 +1,6 @@
+project_id = "zebra-education"
+[auth]
+site_url = "https://zebra-education.vercel.app"
+additional_redirect_urls = ["https://zebra-education.vercel.app/auth/callback", "https://zebra-education.vercel.app/?setPassword=1", "http://localhost:3000/auth/callback", "http://localhost:3000/?setPassword=1"]
+enable_signup = false
+minimum_password_length = 8
