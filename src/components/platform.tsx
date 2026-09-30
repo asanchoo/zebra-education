@@ -26,7 +26,6 @@ import {
   CheckCircle2,
   GraduationCap,
   CalendarDays,
-  LoaderCircle,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { Locale, Workspace } from "@/lib/types";
@@ -133,15 +132,22 @@ export function Platform() {
   };
   if (!ready)
     return (
-      <div className="loading-screen">
-        <Image
-          src="/brand.png"
-          alt="ZEBRA Education"
-          width={200}
-          height={62}
-          priority
-        />
-        <LoaderCircle className="spin" size={24} />
+      <div className="loading-screen" role="status" aria-live="polite">
+        <div className="loading-card">
+          <Image
+            src="/brand-clean.png"
+            alt="ZEBRA Education"
+            width={260}
+            height={87}
+            priority
+          />
+          <div className="loading-progress">
+            <span />
+          </div>
+          <h1>{t("loadingTitle")}</h1>
+          <p>{t("loadingMessage")}</p>
+          <span className="loading-caption">ZEBRA EDUCATION</span>
+        </div>
       </div>
     );
   if (!w)
@@ -156,6 +162,11 @@ export function Platform() {
       />
     );
   const teacher = w.user.role !== "student";
+  const parentCourseId =
+    w.modules.find(
+      (m) => m.id === w.lessons.find((l) => l.id === selectedLesson)?.moduleId,
+    )?.courseId ?? selectedCourse;
+  const parentCourse = w.courses.find((c) => c.id === parentCourseId);
   const lessons = w.lessons.filter((l) =>
     w.modules.some((m) => m.id === l.moduleId),
   );
@@ -205,7 +216,7 @@ export function Platform() {
       <aside className={"sidebar " + (mobile ? "mobile-open" : "")}>
         <div className="brand">
           <Image
-            src="/brand.png"
+            src="/brand-clean.png"
             alt="ZEBRA Education"
             width={155}
             height={50}
@@ -295,13 +306,29 @@ export function Platform() {
           >
             <Menu size={22} />
           </button>
-          <div className="breadcrumbs">
-            <span>{t("learning")}</span>
+          <nav className="breadcrumbs" aria-label={t("navigationPath")}>
+            <button onClick={() => navigate("home")}>{t("learning")}</button>
+            {(view === "lesson" || view === "course") && (
+              <>
+                <ChevronRight size={13} />
+                <button onClick={() => navigate("courses")}>
+                  {t(teacher ? "teacherCourses" : "courses")}
+                </button>
+              </>
+            )}
+            {view === "lesson" && (
+              <>
+                <ChevronRight size={13} />
+                <button onClick={() => navigate("course", parentCourseId)}>
+                  {parentCourse?.title ?? t("course")}
+                </button>
+              </>
+            )}
             <ChevronRight size={13} />
             <strong>
               {t(
                 view === "course"
-                  ? "courses"
+                  ? "course"
                   : view === "lesson"
                     ? "lesson"
                     : view === "courses" && teacher
@@ -311,7 +338,7 @@ export function Platform() {
                         : (view as Label),
               )}
             </strong>
-          </div>
+          </nav>
           <div className="topbar-actions">
             <div className="search-box">
               <Search size={17} />

@@ -10,6 +10,7 @@ import {
 import { AppError } from "@/lib/domain";
 import { commandSchema, execute } from "@/lib/commands";
 import { demoEnabled, serverClient } from "@/lib/supabase";
+import { deleteCloudProfile, deleteDemoProfile } from "@/lib/profiles";
 import { inviteProfile } from "@/lib/invitations";
 import { cookies } from "next/headers";
 import { z } from "zod";
@@ -128,6 +129,13 @@ export async function POST(req: NextRequest) {
         );
         return NextResponse.json({ ok: true, ...invitation });
       }
+      return NextResponse.json({ ok: true });
+    }
+    if (b.action === "deleteProfile") {
+      if (u.role !== "admin") throw new AppError("FORBIDDEN", 403);
+      const id = z.string().min(1).max(100).parse(b.id);
+      if (demoEnabled()) await mutate((s) => deleteDemoProfile(s, u, id));
+      else await deleteCloudProfile(await serverClient(), id);
       return NextResponse.json({ ok: true });
     }
     const c = commandSchema.parse(b);

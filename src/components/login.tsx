@@ -49,7 +49,7 @@ export function Login({
     <div className="login-page">
       <section className="login-story">
         <Image
-          src="/brand.png"
+          src="/brand-clean.png"
           alt="ZEBRA Education"
           width={180}
           height={57}

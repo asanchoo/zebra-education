@@ -577,7 +577,7 @@ export function Editor({
             <button
               className="button secondary"
               disabled={busy}
-              onClick={() => void save(false)}
+              onClick={() => void save(lesson.published)}
             >
               {t("save")}
             </button>
@@ -914,9 +914,11 @@ export function People({
     [editing, setEditing] = useState<string | undefined>(),
     [target, setTarget] = useState("group"),
     [busy, setBusy] = useState(false),
-    [inviteLink, setInviteLink] = useState("");
+    [inviteLink, setInviteLink] = useState(""),
+    [deleting, setDeleting] = useState<string | null>(null);
   const admin = w.user.role === "admin";
   const group = w.groups.find((g) => g.id === selected);
+  const deleteTarget = w.profiles.find((p) => p.id === deleting);
   const perform = (payload: unknown, notice: string) => {
     setBusy(true);
     void run(payload, notice)
@@ -1046,22 +1048,34 @@ export function People({
                   {admin && (
                     <td>
                       {p.id !== w.user.id && (
-                        <button
-                          className="text-button"
-                          onClick={() =>
-                            void run(
-                              {
-                                action: "profile",
-                                id: p.id,
-                                role: p.role,
-                                active: !p.active,
-                              },
-                              t("savedNotice"),
-                            ).catch(() => {})
-                          }
-                        >
-                          {t(p.active ? "disable" : "enable")}
-                        </button>
+                        <div className="people-actions">
+                          <button
+                            className="text-button"
+                            onClick={() =>
+                              void run(
+                                {
+                                  action: "profile",
+                                  id: p.id,
+                                  role: p.role,
+                                  active: !p.active,
+                                },
+                                t("savedNotice"),
+                              ).catch(() => {})
+                            }
+                          >
+                            {t(p.active ? "disable" : "enable")}
+                          </button>
+                          {p.role !== "admin" && (
+                            <button
+                              className="text-button danger-text"
+                              aria-label={`${t("deleteAccount")} ${p.name}`}
+                              onClick={() => setDeleting(p.id)}
+                            >
+                              <Trash2 size={15} />
+                              {t("delete")}
+                            </button>
+                          )}
+                        </div>
                       )}
                     </td>
                   )}
@@ -1071,6 +1085,55 @@ export function People({
           </table>
         </div>
       </div>
+      {deleteTarget && (
+        <Modal
+          title={t("deleteAccount")}
+          onClose={() => {
+            if (!busy) setDeleting(null);
+          }}
+        >
+          <p>
+            <strong>{deleteTarget.name}</strong> · {deleteTarget.email}
+          </p>
+          <p className="delete-explanation">
+            {t(
+              deleteTarget.role === "teacher"
+                ? "deleteTeacherNote"
+                : "deleteStudentNote",
+            )}
+          </p>
+          <div className="form-actions">
+            <button
+              className="button secondary"
+              disabled={busy}
+              onClick={() => setDeleting(null)}
+            >
+              {t("cancel")}
+            </button>
+            <button
+              className="button danger"
+              disabled={busy}
+              onClick={() => {
+                setBusy(true);
+                void run(
+                  { action: "deleteProfile", id: deleteTarget.id },
+                  t("accountDeleted"),
+                )
+                  .then(() => setDeleting(null))
+                  .catch(() => {})
+                  .finally(() => setBusy(false));
+              }}
+            >
+              {busy ? (
+                <LoaderCircle size={16} className="spin" />
+              ) : (
+                <Trash2 size={16} />
+              )}{" "}
+              {t("deleteAccount")}
+            </button>
+          </div>
+        </Modal>
+      )}
       {inviteLink && (
         <Modal
           title={locale === "ru" ? "Ссылка-приглашение" : "Шақыру сілтемесі"}

@@ -11,7 +11,7 @@ A bilingual (Russian/Kazakh) learning platform for one English school. Built wit
 - Block editor: text, images, audio, YouTube/Vimeo videos, single-choice questions, gaps and writing.
 - Server/database auto grading, teacher scores and feedback, return for correction, attempt limits and extra attempts.
 - Draft autosave with local recovery for interrupted navigation, submission history, progress separate from scores, homework deadlines and late-work markers.
-- Groups, memberships, invitations and course assignment.
+- Groups, memberships, invitations and course assignment. Administrator-only account deletion with confirmation: student work is removed; teacher courses, groups and media are retained and transferred to the administrator.
 - Six original beginner lessons inspired by the learning objectives in Family and Friends 1 (2nd edition). No textbook pages or publisher audio are included. Dictation audio is an original synthetic recording; a teacher should review pronunciation before classroom use.
 
 ## Local development
@@ -28,7 +28,7 @@ For local evaluation set `DEMO_MODE=true` and a random `DEMO_SESSION_SECRET` in 
 
 ## Supabase
 
-The deployed project has three applied migrations. Local filenames match the recorded remote migration versions. A fresh project can apply them in order using the Supabase CLI. `supabase/config.toml` declares only the school site URL, allowed redirects, password minimum, and closed registration.
+The deployed project has four applied migrations. Local filenames match the recorded remote migration versions. A fresh project can apply them in order using the Supabase CLI. `supabase/config.toml` declares only the school site URL, allowed redirects, password minimum, and closed registration.
 
 Relationships are indexed foreign keys generated from typed entity JSON. Lesson blocks and submitted snapshots remain JSON so historical work retains the exact questions seen by a student. Correct-answer keys are stored separately. RLS protects all exposed tables. Direct writes by users are revoked; checked RPCs save drafts, grade submissions atomically, review work and save educator changes. Private definer functions always authorize the caller; public RPC wrappers run as invoker. Storage is private with short-lived signed URLs.
 
@@ -65,6 +65,7 @@ node --import tsx scripts/check-production.ts
 node --import tsx scripts/check-editor-cloud.ts
 node --import tsx scripts/check-invite-cloud.ts
 node --import tsx scripts/check-media-cloud.ts
+node --import tsx scripts/check-profile-deletion.ts
 node --import tsx scripts/cleanup-cloud-tests.ts
 ```
 

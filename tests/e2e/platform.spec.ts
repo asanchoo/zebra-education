@@ -11,7 +11,10 @@ test("student sends work, teacher returns it, student sees feedback; mobile and 
   await expect(
     page.getByRole("heading", { name: /Рады видеть тебя/ }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Мои курсы", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Мои курсы", exact: true })
+    .first()
+    .click();
   await page
     .getByRole("button", { name: "English. First steps", exact: true })
     .click();
@@ -43,7 +46,10 @@ test("student sends work, teacher returns it, student sees feedback; mobile and 
   await page
     .getByRole("textbox", { name: "Introduce yourself", exact: true })
     .fill(introduction + " Quick edit");
-  await page.getByRole("button", { name: "Мои курсы", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Мои курсы", exact: true })
+    .first()
+    .click();
   await page
     .getByRole("button", { name: "English. First steps", exact: true })
     .click();
@@ -89,6 +95,7 @@ test("student sends work, teacher returns it, student sees feedback; mobile and 
   await page.getByRole("button", { name: "Menu", exact: true }).click();
   await page
     .getByRole("button", { name: "Менің курстарым", exact: true })
+    .first()
     .click();
   await expect(
     page.getByRole("heading", { name: "Менің курстарым", exact: true }),
