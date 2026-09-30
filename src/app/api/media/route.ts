@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
   if (
     !(file instanceof File) ||
     !types[file.type] ||
-    file.size > 10 * 1024 * 1024 ||
+    file.size > 4 * 1024 * 1024 ||
     !file.size ||
     !/^[a-zA-Z0-9-]+$/.test(lessonId)
   )

@@ -525,6 +525,10 @@ export function Editor({
     }
   }
   async function upload(id: string, file: File) {
+    if (file.size > 4 * 1024 * 1024) {
+      setError(t("fileTooLarge"));
+      return;
+    }
     setUploading(id);
     setError("");
     const f = new FormData();
