@@ -64,6 +64,8 @@ npm run test:cloud
 node --import tsx scripts/check-production.ts
 node --import tsx scripts/check-editor-cloud.ts
 node --import tsx scripts/check-invite-cloud.ts
+node --import tsx scripts/check-media-cloud.ts
+node --import tsx scripts/cleanup-cloud-tests.ts
 ```
 
 Cloud credentials live only in ignored `.data/cloud-test-users.json`. Cloud tests clear only the designated test student's attempts; they never touch real student work. `check-production.ts` exercises actual sign-in and feedback on the deployed URL. Run it only against a test environment or the designated disposable accounts.
