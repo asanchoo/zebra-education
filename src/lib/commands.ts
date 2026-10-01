@@ -32,6 +32,8 @@ const lessonSchema = z.object({
   position: z.number().int().min(0),
   attemptLimit: z.number().int().min(1).max(20),
   published: z.boolean(),
+  hidden: z.boolean().optional(),
+  availableAt: z.string().datetime().optional(),
   version: z.number().int().min(1),
   blocks: z.array(block).max(60),
   keys: z.record(
@@ -73,6 +75,7 @@ export const commandSchema = z.discriminatedUnion("action", [
     open: z.boolean(),
     homework: z.boolean(),
     dueAt: z.string().datetime().optional(),
+    opensAt: z.string().datetime().optional(),
   }),
   z.object({
     action: z.literal("group"),
@@ -212,6 +215,8 @@ export function execute(s: Store, u: Profile, c: Command) {
       )
     )
       throw new AppError("FORBIDDEN", 403);
+    if (c.opensAt && c.dueAt && Date.parse(c.dueAt) <= Date.parse(c.opensAt))
+      throw new AppError("INVALID_SCHEDULE");
     const id = g.id + ":" + l.id;
     s.releases = s.releases.filter(
       (r) => !(r.groupId === g.id && r.lessonId === l.id),
@@ -222,7 +227,8 @@ export function execute(s: Store, u: Profile, c: Command) {
         groupId: g.id,
         lessonId: l.id,
         homework: c.homework,
-        dueAt: c.dueAt,
+        dueAt: c.homework ? c.dueAt : undefined,
+        opensAt: c.opensAt,
       });
     return;
   }
@@ -244,7 +250,13 @@ export function execute(s: Store, u: Profile, c: Command) {
       id: randomUUID(),
       courseId: c.courseId,
       title: c.title,
-      position: s.modules.filter((m) => m.courseId === c.courseId).length + 1,
+      position:
+        Math.max(
+          0,
+          ...s.modules
+            .filter((m) => m.courseId === c.courseId)
+            .map((m) => m.position),
+        ) + 1,
     };
     s.modules.push(m);
     return m;

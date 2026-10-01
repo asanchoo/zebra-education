@@ -16,6 +16,10 @@ export function deleteDemoProfile(s: Store, actor: Profile, id: string) {
   s.enrollments = s.enrollments.filter((e) => e.studentId !== id);
   s.drafts = s.drafts.filter((d) => d.studentId !== id);
   s.attempts = s.attempts.filter((a) => a.studentId !== id);
+  const remainingAttempts = new Set(s.attempts.map((a) => a.id));
+  s.notificationReads = (s.notificationReads ?? []).filter(
+    (r) => r.userId !== id && remainingAttempts.has(r.attemptId),
+  );
   s.extras = s.extras.filter((e) => e.studentId !== id);
   s.profiles = s.profiles.filter((p) => p.id !== id);
 }

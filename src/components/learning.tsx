@@ -1,4 +1,5 @@
 "use client";
+import { homeworkFor } from "@/lib/scheduling";
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import {
@@ -33,7 +34,16 @@ import type {
   Workspace,
 } from "@/lib/types";
 import { errorLabels, local, Label } from "@/lib/i18n";
-import { date, latest, isOpen, icons, T } from "@/lib/client";
+import {
+  date,
+  dateTime,
+  completedIds,
+  openingTime,
+  latest,
+  isOpen,
+  icons,
+  T,
+} from "@/lib/client";
 import { CourseArt, Pill, Empty, PageHeading, Stat } from "./ui";
 
 export function average(w: Workspace) {
@@ -71,7 +81,8 @@ export function CourseCard({
   const lessons = w.lessons.filter((l) =>
     mods.some((m) => m.id === l.moduleId),
   );
-  const done = lessons.filter((l) => !!latest(w, l.id)).length;
+  const completed = completedIds(w);
+  const done = lessons.filter((l) => completed.has(l.id)).length;
   const percent = lessons.length
     ? Math.round((done / lessons.length) * 100)
     : 0;
@@ -194,11 +205,14 @@ export function CourseView({
                     onClick={() => open(l.id)}
                   >
                     <span
-                      className={"lesson-row-icon " + (a ? "complete" : "")}
+                      className={
+                        "lesson-row-icon " +
+                        (a && a.status !== "returned" ? "complete" : "")
+                      }
                     >
                       {!opened ? (
                         <LockKeyhole size={18} />
-                      ) : a ? (
+                      ) : a && a.status !== "returned" ? (
                         <Check size={20} />
                       ) : (
                         <Play size={18} />
@@ -215,10 +229,16 @@ export function CourseView({
                       <Clock size={13} />
                       {l.minutes} {t("minutes")}
                     </span>
-                    {a ? (
+                    {!opened ? (
+                      <span className="locked-text">
+                        {openingTime(w, l)
+                          ? t("scheduledFor") +
+                            " " +
+                            dateTime(openingTime(w, l)!, locale)
+                          : t("locked")}
+                      </span>
+                    ) : a ? (
                       <Pill status={a.status} t={t} />
-                    ) : !opened ? (
-                      <span className="locked-text">{t("locked")}</span>
                     ) : (
                       <span className="lesson-open">
                         {t("start")}
@@ -247,17 +267,7 @@ export function HomeworkList({
   open: (id: string) => void;
   compact?: boolean;
 }) {
-  const tasks = w.releases.filter(
-    (r) =>
-      r.homework &&
-      w.lessons.some((l) => l.id === r.lessonId) &&
-      w.groups.some(
-        (g) => g.id === r.groupId && g.studentIds.includes(w.user.id),
-      ),
-  );
-  const unique = tasks.filter(
-    (r, i) => tasks.findIndex((x) => x.lessonId === r.lessonId) === i,
-  );
+  const unique = homeworkFor(w, Date.parse(w.serverTime));
   return unique.length ? (
     <div className={compact ? "compact-tasks" : "homework-list"}>
       {unique.slice(0, compact ? 3 : undefined).map((r) => {
@@ -280,10 +290,25 @@ export function HomeworkList({
             <div>
               <strong>{local(l.title, locale)}</strong>
               <span>
-                {r.dueAt ? t("due") + ": " + date(r.dueAt, locale) : t("noDue")}
+                {r.dueAt
+                  ? t("due") + ": " + dateTime(r.dueAt, locale)
+                  : t("noDue")}
               </span>
+              {openingTime(w, l) && (
+                <span>
+                  {t("scheduledFor")} {dateTime(openingTime(w, l)!, locale)}
+                </span>
+              )}
             </div>
-            {a ? <Pill status={a.status} t={t} /> : <ChevronRight size={17} />}
+            {(!a || a.status === "returned") &&
+            r.dueAt &&
+            Date.parse(r.dueAt) < Date.parse(w.serverTime) ? (
+              <span className="pill overdue">{t("overdue")}</span>
+            ) : !a ? (
+              <ChevronRight size={17} />
+            ) : null}
+            {a && <Pill status={a.status} t={t} />}
+            {a?.late && <span className="pill overdue">{t("late")}</span>}
           </button>
         );
       })}
@@ -658,7 +683,17 @@ export function LessonRunner({
           <ArrowLeft size={16} />
           {t("backCourse")}
         </button>
-        <Empty text={t("locked")} icon={LockKeyhole} />
+        <Empty
+          text={
+            openingTime(w, l)
+              ? t("scheduledFor") +
+                " " +
+                dateTime(openingTime(w, l)!, locale) +
+                " · Алматы"
+              : t("locked")
+          }
+          icon={LockKeyhole}
+        />
       </>
     );
   return (
@@ -675,6 +710,10 @@ export function LessonRunner({
           <h1>{local(l.title, locale)}</h1>
           <p>{local(l.description, locale)}</p>
         </div>
+        {!teacher &&
+          w.drafts.some(
+            (d) => d.lessonId === l.id && d.version !== l.version,
+          ) && <div className="info-banner">{t("draftChanged")}</div>}
         {teacher && (
           <div className="info-banner">
             <Eye size={16} />
@@ -859,7 +898,11 @@ export function Results({
         <Stat
           icon={CheckCheck}
           label={t("completed")}
-          value={new Set(list.map((a) => a.lessonId)).size}
+          value={
+            w.user.role === "student"
+              ? completedIds(w).size
+              : new Set(list.map((a) => a.lessonId)).size
+          }
           color="mint"
         />
         <Stat

@@ -57,7 +57,13 @@ export async function POST(req: NextRequest) {
         title: { ru: "Новый урок", kk: "Жаңа сабақ" },
         description: { ru: "", kk: "" },
         minutes: 15,
-        position: s.lessons.filter((l) => l.moduleId === moduleId).length + 1,
+        position:
+          Math.max(
+            0,
+            ...s.lessons
+              .filter((l) => l.moduleId === moduleId)
+              .map((l) => l.position),
+          ) + 1,
         attemptLimit: 2,
         published: false,
         version: 1,

@@ -9,6 +9,7 @@ export type Profile = {
   active: boolean;
 };
 export type Course = {
+  hidden?: boolean;
   id: string;
   title: string;
   description: Localized;
@@ -17,6 +18,7 @@ export type Course = {
   color: string;
 };
 export type Module = {
+  hidden?: boolean;
   id: string;
   courseId: string;
   title: Localized;
@@ -35,6 +37,8 @@ export type Block = {
 };
 export type AnswerKey = { accepted: string[] };
 export type Lesson = {
+  hidden?: boolean;
+  availableAt?: string;
   id: string;
   moduleId: string;
   title: Localized;
@@ -61,6 +65,7 @@ export type Enrollment = {
   mode: "group" | "self";
 };
 export type Release = {
+  opensAt?: string;
   id: string;
   groupId: string;
   lessonId: string;
@@ -100,7 +105,14 @@ export type ExtraAttempt = {
   lessonId: string;
   count: number;
 };
+export type NotificationRead = {
+  id: string;
+  userId: string;
+  attemptId: string;
+  eventAt: string;
+};
 export type Store = {
+  notificationReads: NotificationRead[];
   revision: number;
   profiles: Profile[];
   courses: Course[];
@@ -118,4 +130,5 @@ export type Workspace = Omit<Store, "lessons"> & {
   lessons: PublicLesson[];
   user: Profile;
   demo: boolean;
+  serverTime: string;
 };

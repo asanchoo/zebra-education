@@ -8,6 +8,9 @@ A bilingual (Russian/Kazakh) learning platform for one English school. Built wit
 
 - Student, teacher and school administrator accounts; invitation-only access.
 - Courses → modules → versioned lessons. Group-based lesson release and independent course access.
+- Hide/show or permanently delete courses, modules and lessons in the builder. Hiding keeps work and results; deletion removes the selected subtree and its related work after confirmation.
+- Schedule a lesson's earliest opening or a group's lesson/homework opening. School times use Asia/Almaty (UTC+5); deadlines stay fixed and overdue work remains submittable with a late marker.
+- Persistent notification reads, newest review first; a subsequent review creates a new unread event. Visible workspaces refresh every 30 seconds and on window focus.
 - Block editor: text, images, audio, YouTube/Vimeo videos, single-choice questions, gaps and writing.
 - Server/database auto grading, teacher scores and feedback, return for correction, attempt limits and extra attempts.
 - Draft autosave with local recovery for interrupted navigation, submission history, progress separate from scores, homework deadlines and late-work markers.
@@ -28,7 +31,7 @@ For local evaluation set `DEMO_MODE=true` and a random `DEMO_SESSION_SECRET` in 
 
 ## Supabase
 
-The deployed project has four applied migrations. Local filenames match the recorded remote migration versions. A fresh project can apply them in order using the Supabase CLI. `supabase/config.toml` declares only the school site URL, allowed redirects, password minimum, and closed registration.
+The deployed project has six applied migrations. Local filenames match the recorded remote migration versions. A fresh project can apply them in order using the Supabase CLI. `supabase/config.toml` declares only the school site URL, allowed redirects, password minimum, and closed registration.
 
 Relationships are indexed foreign keys generated from typed entity JSON. Lesson blocks and submitted snapshots remain JSON so historical work retains the exact questions seen by a student. Correct-answer keys are stored separately. RLS protects all exposed tables. Direct writes by users are revoked; checked RPCs save drafts, grade submissions atomically, review work and save educator changes. Private definer functions always authorize the caller; public RPC wrappers run as invoker. Storage is private with short-lived signed URLs.
 
@@ -54,7 +57,7 @@ npm run build
 npm run test:e2e
 ```
 
-The browser test expects the local demo server at `http://localhost:3000`. It exercises draft restoration, submission, teacher correction, Kazakh localization, a 390px screen, lesson publication and preview. macOS uses installed Google Chrome; elsewhere install Playwright Chromium or set `CHROME_PATH`.
+The browser tests expect the local demo server at `http://localhost:3000`. They exercise draft restoration, submission, teacher correction, Kazakh localization, a 390px screen, lesson publication and preview, fixed deadlines, notification reads across reloads, scheduled access, hiding and deletion. macOS uses installed Google Chrome; elsewhere install Playwright Chromium or set `CHROME_PATH`.
 
 Cloud checks use disposable accounts:
 
@@ -66,12 +69,15 @@ node --import tsx scripts/check-editor-cloud.ts
 node --import tsx scripts/check-invite-cloud.ts
 node --import tsx scripts/check-media-cloud.ts
 node --import tsx scripts/check-profile-deletion.ts
+node --import tsx scripts/check-functional-cloud.ts
 node --import tsx scripts/cleanup-cloud-tests.ts
 ```
 
 Cloud credentials live only in ignored `.data/cloud-test-users.json`. Cloud tests clear only the designated test student's attempts; they never touch real student work. `check-production.ts` exercises actual sign-in and feedback on the deployed URL. Run it only against a test environment or the designated disposable accounts.
 
 GitHub Actions runs type checking, lint, unit tests and production build. Vercel is linked to the GitHub repository for deployments.
+
+`check-functional-cloud.ts` creates and cleans up its own temporary users and course. Set `ZEBRA_CHECK_SITE=https://zebra-education.vercel.app` to additionally verify the deployed authenticated API, schedule protection, persistent notification reads, and course deletion including private media. Existing school data is left intact.
 
 ## Current boundaries
 

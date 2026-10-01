@@ -3075,3 +3075,109 @@ td small {
     gap: 8px;
   }
 }
+
+.content-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+.pill.hidden {
+  background: #eeeae6;
+  color: #625b55;
+  margin-left: 8px;
+}
+.pill.overdue {
+  background: #f7e5df;
+  color: #963f31;
+  white-space: nowrap;
+}
+.builder-lesson {
+  flex-wrap: wrap;
+}
+.builder-course > .section-head,
+.builder-module > .section-head {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.release-row > strong .pill {
+  margin-left: 8px;
+}
+.release-row > small {
+  display: block;
+  margin-top: 10px;
+}
+.release-row input[type="datetime-local"] {
+  min-width: 0;
+  max-width: 100%;
+}
+.editor-side .panel {
+  min-width: 0;
+}
+@media (max-width: 960px) {
+  .editor-side .field,
+  .editor-side .panel > p,
+  .editor-side .pill {
+    display: block;
+  }
+  .release-row > div {
+    flex-wrap: wrap;
+  }
+}
+
+.notification-panel {
+  max-height: min(70vh, 520px);
+  overflow-y: auto;
+}
+.notification-panel .mark-read {
+  justify-content: flex-start;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+/* Keep deadlines, statuses and schedule controls readable on narrow screens. */
+.task-card {
+  flex-wrap: wrap;
+}
+.task-card div {
+  flex: 1 1 150px;
+}
+.task-card strong {
+  font-size: 14px;
+}
+.task-card div > span,
+.builder-lesson div > span {
+  font-size: 12px;
+  color: #626d65;
+}
+.pill {
+  font-size: 11px;
+  font-weight: 600;
+}
+.pill.pending {
+  color: #7b612d;
+}
+.pill.returned {
+  color: #87503c;
+}
+.pill.draft {
+  color: #5d6272;
+}
+.release-row label,
+.release-row input[type="datetime-local"] {
+  font-size: 13px;
+  color: #485544;
+}
+.release-row > strong,
+.builder-lesson strong {
+  font-size: 14px;
+}
+.notification-panel button {
+  font-size: 13px;
+}
+.notification-panel h3 {
+  font-size: 14px;
+}
+.builder-lesson .content-actions {
+  flex: 0 0 auto;
+}

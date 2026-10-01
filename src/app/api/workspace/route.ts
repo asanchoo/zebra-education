@@ -1,3 +1,6 @@
+import { manageContent } from "@/lib/content";
+import { markNotifications } from "@/lib/notifications";
+import { adminClient } from "@/lib/supabase";
 import { NextResponse, type NextRequest } from "next/server";
 import {
   currentUser,
@@ -136,6 +139,64 @@ export async function POST(req: NextRequest) {
       const id = z.string().min(1).max(100).parse(b.id);
       if (demoEnabled()) await mutate((s) => deleteDemoProfile(s, u, id));
       else await deleteCloudProfile(await serverClient(), id);
+      return NextResponse.json({ ok: true });
+    }
+    if (b.action === "content") {
+      const c = z
+        .object({
+          kind: z.enum(["course", "module", "lesson"]),
+          id: z.string().min(1).max(100),
+          operation: z.enum(["hide", "show", "delete"]),
+        })
+        .parse(b);
+      if (demoEnabled()) await mutate((s) => manageContent(s, u, c));
+      else {
+        const { data, error } = await (
+          await serverClient()
+        ).rpc("manage_content", {
+          kind: c.kind,
+          target_id: c.id,
+          operation: c.operation,
+        });
+        if (error)
+          throw new AppError(
+            error.message.includes("FORBIDDEN") ? "FORBIDDEN" : "SAVE_FAILED",
+            403,
+          );
+        // Files belong to the deleted lessons; retain files for hide/show.
+        for (const lid of data?.deletedLessonIds ?? []) {
+          const storage = adminClient().storage.from("lesson-media");
+          for (;;) {
+            const { data: files, error } = await storage.list(lid, {
+              limit: 100,
+            });
+            if (error || !files?.length) break;
+            const removed = await storage.remove(
+              files.map((f) => lid + "/" + f.name),
+            );
+            if (removed.error) break;
+          }
+        }
+      }
+      return NextResponse.json({ ok: true });
+    }
+    if (b.action === "readNotifications") {
+      const events = z
+        .array(
+          z.object({
+            attemptId: z.string().min(1),
+            eventAt: z.string().datetime({ offset: true }),
+          }),
+        )
+        .max(100)
+        .parse(b.events);
+      if (demoEnabled()) await mutate((s) => markNotifications(s, u, events));
+      else {
+        const { error } = await (
+          await serverClient()
+        ).rpc("read_notifications", { events });
+        if (error) throw new AppError("SAVE_FAILED");
+      }
       return NextResponse.json({ ok: true });
     }
     const c = commandSchema.parse(b);

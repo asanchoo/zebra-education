@@ -1,4 +1,5 @@
 "use client";
+import { schoolInput, schoolInstant } from "@/lib/scheduling";
 import { useState } from "react";
 import {
   ArrowUpRight,
@@ -17,6 +18,7 @@ import {
   Copy,
   Trash2,
   Eye,
+  EyeOff,
   Upload,
   LoaderCircle,
 } from "lucide-react";
@@ -30,7 +32,7 @@ import type {
   Workspace,
 } from "@/lib/types";
 import { errorLabels, local } from "@/lib/i18n";
-import { date, icons, T } from "@/lib/client";
+import { date, dateTime, icons, T } from "@/lib/client";
 import { Pill, Empty, Modal, Field, PageHeading } from "./ui";
 import { BlockView } from "./learning";
 
@@ -281,6 +283,8 @@ export function Builder({
 }) {
   const [editing, setEditing] = useState<Lesson | null>(null),
     [form, setForm] = useState<"course" | "module" | null>(null),
+    [moduleCourse, setModuleCourse] = useState(""),
+    [formBusy, setFormBusy] = useState(false),
     [loading, setLoading] = useState(false),
     [error, setError] = useState("");
   const edit = async (l: PublicLesson) => {
@@ -303,7 +307,13 @@ export function Builder({
       title: { ru: "", kk: "" },
       description: { ru: "", kk: "" },
       minutes: 15,
-      position: w.lessons.filter((l) => l.moduleId === moduleId).length + 1,
+      position:
+        Math.max(
+          0,
+          ...w.lessons
+            .filter((l) => l.moduleId === moduleId)
+            .map((l) => l.position),
+        ) + 1,
       attemptLimit: 2,
       published: false,
       version: 1,
@@ -337,10 +347,24 @@ export function Builder({
       {w.courses.map((c) => (
         <section className="builder-course" key={c.id}>
           <div className="section-head">
-            <h2>{c.title}</h2>
+            <h2>
+              {c.title}
+              {c.hidden && <span className="pill hidden">{t("hidden")}</span>}
+            </h2>
+            <ContentActions
+              kind="course"
+              id={c.id}
+              title={c.title}
+              hidden={c.hidden}
+              t={t}
+              run={run}
+            />
             <button
               className="button secondary small"
-              onClick={() => setForm("module")}
+              onClick={() => {
+                setModuleCourse(c.id);
+                setForm("module");
+              }}
             >
               <Plus size={15} />
               {t("newModule")}
@@ -354,7 +378,18 @@ export function Builder({
                   <h3>
                     <Layers size={17} />
                     {local(m.title, locale)}
+                    {m.hidden && (
+                      <span className="pill hidden">{t("hidden")}</span>
+                    )}
                   </h3>
+                  <ContentActions
+                    kind="module"
+                    id={m.id}
+                    title={local(m.title, locale)}
+                    hidden={m.hidden}
+                    t={t}
+                    run={run}
+                  />
                   <button className="text-button" onClick={() => create(m.id)}>
                     <Plus size={16} />
                     {t("newLesson")}
@@ -376,6 +411,22 @@ export function Builder({
                           {l.minutes} {t("minutes")}
                         </span>
                       </div>
+                      {l.hidden && (
+                        <span className="pill hidden">{t("hidden")}</span>
+                      )}
+                      {l.availableAt && (
+                        <span className="small-text muted">
+                          {t("scheduledFor")} {dateTime(l.availableAt, locale)}
+                        </span>
+                      )}
+                      <ContentActions
+                        kind="lesson"
+                        id={l.id}
+                        title={local(l.title, locale)}
+                        hidden={l.hidden}
+                        t={t}
+                        run={run}
+                      />
                       <Pill
                         status={l.published ? "published" : "draft"}
                         t={t}
@@ -403,6 +454,8 @@ export function Builder({
           <form
             onSubmit={(e) => {
               e.preventDefault();
+              if (formBusy) return;
+              setFormBusy(true);
               const f = new FormData(e.currentTarget);
               const payload =
                 form === "course"
@@ -419,7 +472,8 @@ export function Builder({
                     };
               void run(payload, t("savedNotice"))
                 .then(() => setForm(null))
-                .catch(() => {});
+                .catch(() => {})
+                .finally(() => setFormBusy(false));
             }}
           >
             {form === "course" ? (
@@ -433,7 +487,7 @@ export function Builder({
               </>
             ) : (
               <Field label={t("courses")}>
-                <select name="courseId">
+                <select name="courseId" defaultValue={moduleCourse}>
                   {w.courses.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.title}
@@ -448,7 +502,9 @@ export function Builder({
             <Field label={t(form === "course" ? "descKk" : "titleKk")}>
               <input name="kk" required />
             </Field>
-            <button className="button dark">{t("save")}</button>
+            <button className="button dark" disabled={formBusy}>
+              {t("save")}
+            </button>
           </form>
         </Modal>
       )}
@@ -468,7 +524,7 @@ export function Editor({
   run: (p: unknown, n?: string) => Promise<unknown>;
   back: () => void;
 }) {
-  const [lesson, setLesson] = useState<Lesson>(structuredClone(original)),
+  const [lesson, setLesson] = useState<Lesson>(() => structuredClone(original)),
     [preview, setPreview] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -873,6 +929,19 @@ export function Editor({
                 }
               />
             </Field>
+            <Field label={t("lessonOpensAt")}>
+              <input
+                type="datetime-local"
+                value={schoolInput(lesson.availableAt)}
+                onChange={(e) =>
+                  change({
+                    ...lesson,
+                    availableAt: schoolInstant(e.target.value),
+                  })
+                }
+              />
+            </Field>
+            <p className="small-text muted">{t("schoolTimezone")}</p>
             <Pill status={lesson.published ? "published" : "draft"} t={t} />
           </div>
         </aside>
@@ -1386,13 +1455,8 @@ function ReleaseRow({
   );
   const [open, setOpen] = useState(!!r),
     [homework, setHomework] = useState(r?.homework ?? false),
-    [due, setDue] = useState(
-      r?.dueAt
-        ? new Date(new Date(r.dueAt).getTime() + 5 * 3600 * 1000)
-            .toISOString()
-            .slice(0, 16)
-        : "",
-    ),
+    [due, setDue] = useState(schoolInput(r?.dueAt)),
+    [opens, setOpens] = useState(schoolInput(r?.opensAt)),
     [busy, setBusy] = useState(false);
   return (
     <form
@@ -1407,7 +1471,8 @@ function ReleaseRow({
             lessonId: l.id,
             open,
             homework,
-            dueAt: due ? new Date(due + ":00+05:00").toISOString() : undefined,
+            dueAt: homework ? schoolInstant(due) : undefined,
+            opensAt: schoolInstant(opens),
           },
           t("savedNotice"),
         )
@@ -1415,7 +1480,12 @@ function ReleaseRow({
           .finally(() => setBusy(false));
       }}
     >
-      <strong>{local(l.title, locale)}</strong>
+      <strong>
+        {local(l.title, locale)}
+        {r?.dueAt && Date.parse(r.dueAt) < Date.parse(w.serverTime) && (
+          <span className="pill overdue">{t("deadlinePassed")}</span>
+        )}
+      </strong>
       <div>
         <label>
           <input
@@ -1435,6 +1505,15 @@ function ReleaseRow({
           {t("homeworkLabel")}
         </label>
         <label>
+          {t("opensAt")}
+          <input
+            type="datetime-local"
+            value={opens}
+            onChange={(e) => setOpens(e.target.value)}
+            disabled={!open}
+          />
+        </label>
+        <label>
           {t("due")}
           <input
             type="datetime-local"
@@ -1447,6 +1526,94 @@ function ReleaseRow({
           {t("save")}
         </button>
       </div>
+      <small className="muted">
+        {t("schoolTimezone")}
+        {r?.opensAt
+          ? " · " + t("scheduledFor") + " " + dateTime(r.opensAt, locale)
+          : ""}
+      </small>
     </form>
+  );
+}
+
+function ContentActions({
+  kind,
+  id,
+  title,
+  hidden,
+  t,
+  run,
+}: {
+  kind: "course" | "module" | "lesson";
+  id: string;
+  title: string;
+  hidden?: boolean;
+  t: T;
+  run: (p: unknown, n?: string) => Promise<unknown>;
+}) {
+  const [confirm, setConfirm] = useState(false),
+    [busy, setBusy] = useState(false);
+  const act = (operation: "hide" | "show" | "delete") => {
+    setBusy(true);
+    void run({ action: "content", kind, id, operation }, t("savedNotice"))
+      .then(() => setConfirm(false))
+      .catch(() => {})
+      .finally(() => setBusy(false));
+  };
+  return (
+    <div className="content-actions">
+      <button
+        className="icon-button"
+        disabled={busy}
+        title={t(hidden ? "show" : "hide")}
+        aria-label={`${t(hidden ? "show" : "hide")} ${title}`}
+        onClick={() => act(hidden ? "show" : "hide")}
+      >
+        {hidden ? <Eye size={17} /> : <EyeOff size={17} />}
+      </button>
+      <button
+        className="icon-button danger-text"
+        disabled={busy}
+        title={t("deleteContent")}
+        aria-label={`${t("deleteContent")} ${title}`}
+        onClick={() => setConfirm(true)}
+      >
+        <Trash2 size={17} />
+      </button>
+      {confirm && (
+        <Modal
+          title={t("deleteContent")}
+          onClose={() => {
+            if (!busy) setConfirm(false);
+          }}
+        >
+          <p>
+            <strong>{title}</strong>
+          </p>
+          <p className="delete-explanation">{t("deleteContentNote")}</p>
+          <div className="form-actions">
+            <button
+              className="button secondary"
+              disabled={busy}
+              onClick={() => setConfirm(false)}
+            >
+              {t("cancel")}
+            </button>
+            <button
+              className="button danger"
+              disabled={busy}
+              onClick={() => act("delete")}
+            >
+              {busy ? (
+                <LoaderCircle size={16} className="spin" />
+              ) : (
+                <Trash2 size={16} />
+              )}{" "}
+              {t("deleteContent")}
+            </button>
+          </div>
+        </Modal>
+      )}
+    </div>
   );
 }

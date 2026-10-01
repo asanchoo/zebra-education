@@ -1,4 +1,5 @@
-import type { Attempt, Lesson, Profile, Store } from "./types";
+import { hasOpened } from "./scheduling";
+import type { Attempt, Lesson, PublicLesson, Profile, Store } from "./types";
 export class AppError extends Error {
   constructor(
     message: string,
@@ -14,12 +15,19 @@ export function normalize(value: string) {
     .replace(/\s+/g, " ")
     .toLocaleLowerCase("en");
 }
-export function courseForLesson(s: Store, lesson: Lesson) {
+export function courseForLesson(
+  s: Pick<Store, "courses" | "modules">,
+  lesson: Pick<Lesson, "moduleId">,
+) {
   return s.courses.find(
     (c) => c.id === s.modules.find((m) => m.id === lesson.moduleId)?.courseId,
   );
 }
-export function managesCourse(s: Store, u: Profile, courseId: string) {
+export function managesCourse(
+  s: Pick<Store, "courses" | "enrollments" | "groups">,
+  u: Profile,
+  courseId: string,
+) {
   return (
     u.role === "admin" ||
     (u.role === "teacher" &&
@@ -42,7 +50,11 @@ export function managesStudent(s: Store, u: Profile, studentId: string) {
     )
   );
 }
-export function enrolled(s: Store, userId: string, courseId: string) {
+export function enrolled(
+  s: Pick<Store, "enrollments" | "groups">,
+  userId: string,
+  courseId: string,
+) {
   return s.enrollments.filter(
     (e) =>
       e.courseId === courseId &&
@@ -52,15 +64,32 @@ export function enrolled(s: Store, userId: string, courseId: string) {
         )),
   );
 }
-export function canOpen(s: Store, u: Profile, l: Lesson) {
+export function canOpen(
+  s: Pick<Store, "courses" | "modules" | "enrollments" | "groups" | "releases">,
+  u: Profile,
+  l: PublicLesson,
+  now = Date.now(),
+) {
   const course = courseForLesson(s, l);
   if (!course) return false;
   if (u.role !== "student") return managesCourse(s, u, course.id);
-  if (!l.published) return false;
+  if (
+    !l.published ||
+    l.hidden ||
+    course.hidden ||
+    s.modules.find((m) => m.id === l.moduleId)?.hidden ||
+    !hasOpened(l.availableAt, now)
+  )
+    return false;
   return enrolled(s, u.id, course.id).some(
     (e) =>
       e.mode === "self" ||
-      s.releases.some((r) => r.groupId === e.groupId && r.lessonId === l.id),
+      s.releases.some(
+        (r) =>
+          r.groupId === e.groupId &&
+          r.lessonId === l.id &&
+          hasOpened(r.opensAt, now),
+      ),
   );
 }
 export function remaining(s: Store, userId: string, l: Lesson) {
@@ -124,14 +153,15 @@ export function submit(
   const marks = grade(l, clean);
   const course = courseForLesson(s, l)!;
   const es = enrolled(s, u.id, course.id);
-  const dates = s.releases
-    .filter(
-      (r) =>
-        r.lessonId === l.id &&
-        r.homework &&
-        r.dueAt &&
-        es.some((e) => e.groupId === r.groupId),
-    )
+  const assigned = s.releases.filter(
+    (r) =>
+      r.lessonId === l.id &&
+      r.homework &&
+      hasOpened(r.opensAt) &&
+      es.some((e) => e.groupId === r.groupId),
+  );
+  const dates = assigned
+    .filter((r) => r.dueAt)
     .map((r) => Date.parse(r.dueAt!));
   const now = new Date().toISOString();
   const a: Attempt = {
@@ -143,7 +173,10 @@ export function submit(
       s.attempts.filter((a) => a.studentId === u.id && a.lessonId === l.id)
         .length + 1,
     submittedAt: now,
-    late: dates.length > 0 && Date.now() > Math.max(...dates),
+    late:
+      assigned.length > 0 &&
+      assigned.every((r) => r.dueAt) &&
+      Date.now() > Math.max(...dates),
     answers: clean,
     snapshot: structuredClone(l.blocks),
     ...marks,

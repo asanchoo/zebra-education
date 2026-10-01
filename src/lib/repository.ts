@@ -58,13 +58,17 @@ export async function currentUser(): Promise<Profile | null> {
 }
 async function loadDemo(): Promise<Store> {
   try {
-    return JSON.parse(await fs.readFile(file, "utf8"));
+    return {
+      notificationReads: [],
+      ...JSON.parse(await fs.readFile(file, "utf8")),
+    };
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
     return createSeed();
   }
 }
 export const tables = [
+  "notificationReads",
   "profiles",
   "courses",
   "modules",
@@ -81,7 +85,9 @@ export async function loadStore(): Promise<Store> {
   const db = await serverClient();
   const entries = await Promise.all(
     tables.map(async (table) => {
-      const { data, error } = await db.from(table).select("data");
+      const { data, error } = await db
+        .from(table === "notificationReads" ? "notification_reads" : table)
+        .select("data");
       if (error) throw new AppError("DATABASE_UNAVAILABLE", 503);
       return [table, data.map((row) => row.data)] as const;
     }),
@@ -120,15 +126,19 @@ export async function mutate<T>(run: (s: Store) => T | Promise<T>): Promise<T> {
 export function publicWorkspace(s: Store, u: Profile): Workspace {
   const courses = s.courses.filter((c) =>
     u.role === "student"
-      ? enrolled(s, u.id, c.id).length > 0
+      ? !c.hidden && enrolled(s, u.id, c.id).length > 0
       : managesCourse(s, u, c.id),
   );
   const courseIds = new Set(courses.map((c) => c.id));
-  const modules = s.modules.filter((m) => courseIds.has(m.courseId));
+  const modules = s.modules.filter(
+    (m) => courseIds.has(m.courseId) && (u.role !== "student" || !m.hidden),
+  );
   const moduleIds = new Set(modules.map((m) => m.id));
   const lessons = s.lessons
     .filter(
-      (l) => moduleIds.has(l.moduleId) && (u.role !== "student" || l.published),
+      (l) =>
+        moduleIds.has(l.moduleId) &&
+        (u.role !== "student" || (l.published && !l.hidden)),
     )
     .map((l) => {
       const { keys: _keys, ...publicLesson } = l;
@@ -155,8 +165,12 @@ export function publicWorkspace(s: Store, u: Profile): Workspace {
   );
   return {
     revision: s.revision,
+    notificationReads: (s.notificationReads ?? []).filter(
+      (r) => r.userId === u.id,
+    ),
     user: u,
     demo: demoEnabled(),
+    serverTime: new Date().toISOString(),
     profiles: s.profiles.filter(
       (p) =>
         u.role === "admin" ||
@@ -191,7 +205,7 @@ export async function persistEntities(before: Store, after: Store) {
   const db = await serverClient();
   const changes: Record<string, unknown[]> = {};
   for (const table of tables) {
-    if (["attempts", "drafts"].includes(table)) continue;
+    if (["attempts", "drafts", "notificationReads"].includes(table)) continue;
     const rows = after[table].filter(
       (row) =>
         JSON.stringify(row) !==

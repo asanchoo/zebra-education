@@ -1,4 +1,5 @@
 "use client";
+import { notificationEvent } from "@/lib/notifications";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import {
@@ -30,7 +31,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import type { Locale, Workspace } from "@/lib/types";
 import { errorLabels, local, translator, Label } from "@/lib/i18n";
-import { api, isOpen } from "@/lib/client";
+import { api, isOpen, completedIds } from "@/lib/client";
 import { CourseArt, Pill, Empty, Modal, Field, PageHeading, Stat } from "./ui";
 import {
   average,
@@ -69,20 +70,39 @@ export function Platform() {
     [setPassword, setSetPassword] = useState(false);
   const t = translator(locale);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadSequence = useRef(0);
   const notify = (text: string) => {
     setToast(text);
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => setToast(""), 4500);
   };
   const load = useCallback(async () => {
+    const sequence = ++loadSequence.current;
     const response = await fetch("/api/workspace", { cache: "no-store" });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error);
-    setW(data.user ? data : null);
-    setDemo(data.demo);
-    setReady(true);
+    if (sequence === loadSequence.current) {
+      setW(data.user ? data : null);
+      setDemo(data.demo);
+      setReady(true);
+    }
     return data as Workspace;
   }, []);
+  const authenticated = !!w;
+  useEffect(() => {
+    if (!authenticated) return;
+    const refresh = () => {
+      if (document.visibilityState === "visible") void load().catch(() => {});
+    };
+    const timer = setInterval(refresh, 30_000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [authenticated, load]);
   useEffect(() => {
     const init = async () => {
       const hash = new URLSearchParams(window.location.hash.slice(1));
@@ -170,11 +190,7 @@ export function Platform() {
   const lessons = w.lessons.filter((l) =>
     w.modules.some((m) => m.id === l.moduleId),
   );
-  const done = new Set(
-    w.attempts
-      .filter((a) => teacher || a.studentId === w.user.id)
-      .map((a) => a.lessonId),
-  );
+  const done = completedIds(w);
   const pending = w.attempts.filter((a) => a.status === "pending");
   const nav: [View, Label, LucideIcon][] = [
     ["home", "home", LayoutDashboard],
@@ -203,14 +219,39 @@ export function Platform() {
             .includes(search.toLowerCase()),
       )
     : [];
-  const course = w.courses.find((c) => c.id === selectedCourse) ?? w.courses[0];
+  const course =
+    w.courses.find((c) => c.id === selectedCourse) ??
+    (view === "course" ? undefined : w.courses[0]);
   const lesson = w.lessons.find((l) => l.id === selectedLesson);
-  const notices = teacher
-    ? pending
-    : w.attempts
-        .filter((a) => a.status === "reviewed" || a.status === "returned")
-        .slice(-5)
-        .reverse();
+  const notices = (
+    teacher
+      ? [...pending]
+      : w.attempts.filter(
+          (a) => a.status === "reviewed" || a.status === "returned",
+        )
+  ).sort(
+    (a, b) =>
+      Date.parse(notificationEvent(b)) - Date.parse(notificationEvent(a)),
+  );
+  const unread = notices.filter(
+    (a) =>
+      !w.notificationReads.some(
+        (r) => r.attemptId === a.id && r.eventAt === notificationEvent(a),
+      ),
+  );
+  const readNotices = (items: typeof notices) => {
+    const save = async () => {
+      for (let i = 0; i < items.length; i += 100)
+        await run({
+          action: "readNotifications",
+          events: items.slice(i, i + 100).map((a) => ({
+            attemptId: a.id,
+            eventAt: notificationEvent(a),
+          })),
+        });
+    };
+    void save().catch(() => {});
+  };
   return (
     <div className="app-shell">
       <aside className={"sidebar " + (mobile ? "mobile-open" : "")}>
@@ -386,19 +427,37 @@ export function Platform() {
               <button
                 className="icon-button bell"
                 aria-label={t("notifications")}
-                onClick={() => setNotifications(!notifications)}
+                onClick={() => {
+                  setNotifications(!notifications);
+                  if (!notifications)
+                    readNotices(
+                      unread.filter((a) => notices.slice(0, 20).includes(a)),
+                    );
+                }}
               >
                 <Bell size={20} />
-                {notices.length > 0 && <i />}
+                {unread.length > 0 && (
+                  <i aria-label={t("unreadNotifications")} />
+                )}
               </button>
               {notifications && (
                 <div className="notification-panel">
                   <h3>{t("notifications")}</h3>
+                  {unread.length > 0 && (
+                    <button
+                      className="mark-read"
+                      onClick={() => readNotices(unread)}
+                    >
+                      <CheckCheck size={15} />
+                      {t("markAllRead")}
+                    </button>
+                  )}
                   {notices.length ? (
-                    notices.map((a) => (
+                    notices.slice(0, 20).map((a) => (
                       <button
                         key={a.id}
                         onClick={() => {
+                          readNotices([a]);
                           navigate(teacher ? "review" : "lesson", a.lessonId);
                           setNotifications(false);
                         }}
@@ -698,6 +757,9 @@ export function Platform() {
               </div>
             </>
           )}
+          {view === "course" && !course && (
+            <Empty text={t("materialUnavailable")} />
+          )}
           {view === "course" && course && (
             <CourseView
               course={course}
@@ -708,9 +770,12 @@ export function Platform() {
               back={() => navigate("courses")}
             />
           )}
+          {view === "lesson" && !lesson && (
+            <Empty text={t("materialUnavailable")} />
+          )}
           {view === "lesson" && lesson && (
             <LessonRunner
-              key={lesson.id}
+              key={lesson.id + ":" + lesson.version}
               lesson={lesson}
               w={w}
               locale={locale}

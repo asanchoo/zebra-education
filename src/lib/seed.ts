@@ -402,6 +402,7 @@ export function createSeed(): Store {
       groupId: "beginners",
       homework: i === 0 || i === 5,
     })),
+    notificationReads: [],
     drafts: [],
     attempts: [],
     extras: [],
