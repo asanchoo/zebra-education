@@ -129,12 +129,16 @@ a {
   position: fixed;
   left: 0;
   top: 0;
-  bottom: 0;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  padding-bottom: calc(15px + env(safe-area-inset-bottom, 0px));
   z-index: 40;
   display: flex;
   flex-direction: column;
 }
 .brand {
+  flex-shrink: 0;
   padding: 4px 11px 25px;
   display: flex;
   align-items: center;
@@ -222,8 +226,14 @@ a {
   margin-left: auto;
 }
 .sidebar-bottom {
-  margin-top: auto;
-  padding-top: 24px;
+  flex-shrink: 0;
+  padding-top: 12px;
+}
+.sidebar-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .sidebar-tip {
   background: #f8f8ee;
@@ -1694,6 +1704,7 @@ td small {
   min-width: 0;
 }
 .field > span,
+.password-field > label,
 .form-label {
   font-size: 10px;
   color: #919b84;
@@ -1707,6 +1718,35 @@ td small {
 }
 .field textarea {
   line-height: 1.7;
+}
+.password-input {
+  position: relative;
+}
+.password-input input {
+  padding-right: 52px;
+  min-height: 48px;
+}
+.password-toggle {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  color: #56635a;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+}
+.password-toggle:hover {
+  color: #263e2d;
+  background: #eef3ea;
+}
+.password-toggle:focus-visible {
+  outline: 2px solid #79af8b;
+  outline-offset: -2px;
 }
 .form-actions {
   display: flex;
@@ -2925,9 +2965,18 @@ td small {
 @media (max-width: 720px) {
   .sidebar {
     visibility: hidden;
+    padding-bottom: calc(15px + env(safe-area-inset-bottom, 0px));
+  }
+  .sidebar-tip {
+    display: none;
   }
   .sidebar.mobile-open {
     visibility: visible;
+  }
+}
+@media (max-height: 700px) {
+  .sidebar-tip {
+    display: none;
   }
 }
 

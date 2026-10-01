@@ -32,7 +32,7 @@ import type { LucideIcon } from "lucide-react";
 import type { Locale, Workspace } from "@/lib/types";
 import { errorLabels, local, translator, Label } from "@/lib/i18n";
 import { api, isOpen, completedIds } from "@/lib/client";
-import { CourseArt, Pill, Empty, Modal, Field, PageHeading, Stat } from "./ui";
+import { CourseArt, Pill, Empty, Modal, PageHeading, Stat } from "./ui";
 import {
   average,
   CourseCard,
@@ -43,6 +43,7 @@ import {
 } from "./learning";
 import { Review, Builder, People } from "./teaching";
 import { Login } from "./login";
+import { PasswordField } from "./password-field";
 type View =
   | "home"
   | "courses"
@@ -271,36 +272,40 @@ export function Platform() {
             <X size={20} />
           </button>
         </div>
-        <div className="school-tag">
-          <span className="school-mark">ZE</span>
-          <div>
-            <strong>ZEBRA Education</strong>
-            <span>{t("school")}</span>
+        <div className="sidebar-scroll">
+          <div className="school-tag">
+            <span className="school-mark">ZE</span>
+            <div>
+              <strong>ZEBRA Education</strong>
+              <span>{t("school")}</span>
+            </div>
+            <ChevronDown size={15} />
           </div>
-          <ChevronDown size={15} />
+          <div className="nav-label">
+            {t(teacher ? "workspace" : "learning")}
+          </div>
+          <nav>
+            {nav.map(([key, label, Icon]) => (
+              <button
+                key={key}
+                className={
+                  "nav-item " +
+                  (view === key ||
+                  (key === "courses" && ["course", "lesson"].includes(view))
+                    ? "active"
+                    : "")
+                }
+                onClick={() => navigate(key)}
+              >
+                <Icon size={20} />
+                <span>{t(label)}</span>
+                {key === "review" && pending.length > 0 && (
+                  <span className="nav-count">{pending.length}</span>
+                )}
+              </button>
+            ))}
+          </nav>
         </div>
-        <div className="nav-label">{t(teacher ? "workspace" : "learning")}</div>
-        <nav>
-          {nav.map(([key, label, Icon]) => (
-            <button
-              key={key}
-              className={
-                "nav-item " +
-                (view === key ||
-                (key === "courses" && ["course", "lesson"].includes(view))
-                  ? "active"
-                  : "")
-              }
-              onClick={() => navigate(key)}
-            >
-              <Icon size={20} />
-              <span>{t(label)}</span>
-              {key === "review" && pending.length > 0 && (
-                <span className="nav-count">{pending.length}</span>
-              )}
-            </button>
-          ))}
-        </nav>
         <div className="sidebar-bottom">
           <div className="sidebar-tip">
             <span className="tip-symbol">✦</span>
@@ -896,15 +901,12 @@ export function Platform() {
                 .catch(() => {});
             }}
           >
-            <Field label={t("newPassword")}>
-              <input
-                name="password"
-                type="password"
-                minLength={8}
-                autoComplete="new-password"
-                required
-              />
-            </Field>
+            <PasswordField
+              label={t("newPassword")}
+              t={t}
+              minLength={8}
+              autoComplete="new-password"
+            />
             <button className="button dark">{t("save")}</button>
           </form>
         </Modal>

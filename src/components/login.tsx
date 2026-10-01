@@ -11,6 +11,7 @@ import {
 import type { Locale, Profile, Role } from "@/lib/types";
 import { api, T } from "@/lib/client";
 import { CourseArt, Field } from "./ui";
+import { PasswordField } from "./password-field";
 
 export function Login({
   t,
@@ -140,15 +141,12 @@ export function Login({
                   autoComplete="email"
                 />
               </Field>
-              <Field label={t("password")}>
-                <input
-                  name="password"
-                  type="password"
-                  required
-                  minLength={6}
-                  autoComplete="current-password"
-                />
-              </Field>
+              <PasswordField
+                label={t("password")}
+                t={t}
+                minLength={6}
+                autoComplete="current-password"
+              />
               <button className="button dark full" disabled={busy}>
                 {busy ? (
                   <LoaderCircle className="spin" size={18} />

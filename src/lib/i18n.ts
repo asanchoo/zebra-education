@@ -188,6 +188,8 @@ export const labels = {
     inactive: "Отключён",
     manage: "Управлять",
     password: "Пароль",
+    showPassword: "Показать пароль",
+    hidePassword: "Скрыть пароль",
     login: "Войти",
     loginTitle: "Твой следующий шаг — здесь",
     loginDesc:
@@ -453,6 +455,8 @@ export const labels = {
     inactive: "Өшірілген",
     manage: "Басқару",
     password: "Құпиясөз",
+    showPassword: "Құпиясөзді көрсету",
+    hidePassword: "Құпиясөзді жасыру",
     login: "Кіру",
     loginTitle: "Келесі қадамың — осында",
     loginDesc:
